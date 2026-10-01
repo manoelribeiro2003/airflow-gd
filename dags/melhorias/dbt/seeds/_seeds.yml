@@ -1,0 +1,70 @@
+version: 2
+
+seeds:
+  - name: mel_gerente_remap
+    description: >
+      Remap de gerente (cadeia if do Qlik). origem -> destino, com valido_ate
+      opcional: a regra só vale quando inicio_bimestre < valido_ate
+      (nulo = sempre). Fall-through: sem match, mantém a origem.
+    config:
+      column_types:
+        origem: varchar(100)
+        destino: varchar(100)
+        valido_ate: date
+  - name: mel_gerente_area
+    description: "Lookup de área pelo nome do gerente já ajustado (planilha gerentes)."
+    config:
+      column_types:
+        gerente: varchar(100)
+        area: varchar(100)
+  - name: mel_categoria_melhorias
+    description: "Mapa Tipo de Melhoria -> Categoria das melhorias (planilha)."
+    config:
+      column_types:
+        tipo_melhoria: varchar(100)
+        categoria: varchar(100)
+  - name: mel_bimestre
+    description: "Mapa mês (1-12) -> bimestre (jan-fev .. nov-dez)."
+    config:
+      column_types:
+        mes: int
+        bimestre: varchar(20)
+  - name: mel_ganhos_ajuste
+    description: >
+      Ganho em R$ corrigido de FAPs de tipo sem volume cujo cadastro em mel_ganhos
+      ficou diferente da planilha BASE_LANCAMENTO (ajuste feito só na planilha).
+      Substitui mel_ganhos.ganho_previsto em stg_mel_ganhos. referencia = arquivo e
+      linha da planilha. ADR 0011, issue #27.
+    config:
+      column_types:
+        numero_fap: varchar(30)
+        ganho_previsto: decimal(18,2)
+        referencia: varchar(100)
+  - name: mel_macro_setor
+    description: >
+      Mapa (filial, setor) -> macro_setor para as linhas de mel_ganhos e
+      mel_ganhos_hist com macro_setor nulo. Preenche o nulo em stg_mel_ganhos; o
+      valor cadastrado não é trocado. origem = de onde saiu o macro: 'mel_ganhos'
+      (o mais usado nas linhas do mesmo setor que têm macro) ou 'planilha'
+      (coluna Setor Macro da BASE_LANCAMENTO, quando nenhuma linha do setor tem
+      macro). ADR 0012, issue #28.
+    config:
+      column_types:
+        filial: varchar(255)
+        setor: varchar(255)
+        macro_setor: varchar(255)
+        origem: varchar(20)
+  - name: mel_ganhos_fonte_planilha
+    description: >
+      FAPs de tipo com ganho por volume (TC, Aglutinação, Consumo, Troca MP) que têm
+      linha em mel_ganhos, mas com o cadastro incompleto ou diferente da planilha
+      BASE_LANCAMENTO, e em que a área confirmou a planilha. stg_mel_ganhos tira as
+      linhas do bronze dessas FAPs e usa as da planilha (mel_ganhos_hist), com os
+      atributos da FAP do bronze. motivo = 'cadastro incompleto' (a planilha tem mais
+      códigos) ou 'cadastro divergente' (mesmo código, valores diferentes); detalhe
+      = o que difere. ADR 0013, issue #29.
+    config:
+      column_types:
+        numero_fap: varchar(30)
+        motivo: varchar(30)
+        detalhe: varchar(255)

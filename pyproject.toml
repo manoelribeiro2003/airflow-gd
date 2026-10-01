@@ -1,0 +1,91 @@
+[project]
+name = "airflow"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "apache-airflow==2.10.5",
+  "apache-airflow-providers-postgres>=6.0.0",
+  "pandas>=2.1.4",
+  "psycopg2-binary>=2.9.11",
+  "requests>=2.33.1",
+  "office365-rest-python-client>=2.6.2",
+  "polars>=1.28.1",
+  "pyarrow>=23.0.1",
+  "pyodbc>=5.1.0,<5.2.0",
+  "python-dotenv>=1.2.2",
+  "sqlalchemy>=1.4.54",
+  "xlsxwriter>=3.2.9",
+  "apache-airflow-providers-microsoft-mssql>=4.3.3",
+  "connectorx>=0.4.5",
+  "duckdb>=1.5.2",
+  "openpyxl>=3.1.5",
+]
+
+[dependency-groups]
+dev = [
+    "taskipy",
+    "ruff",
+    "pytest",
+    "pytest-cov",
+    "sqlfluff>=4.1.0",
+    "python-calamine>=0.8.2",
+]
+# Pinado em 1.8.x pra casar com o container (apache/airflow image): evita skew de
+# package-lock.yml entre dbt local e o do worker.
+dbt = ["dbt-core>=1.8.0,<1.9", "dbt-sqlserver>=1.8.0,<1.9"]
+
+[tool.taskipy.tasks]
+lint = "uv run ruff check"
+# dbt fica fora deste pass (ignorado no .sqlfluffignore): usa templater python e
+# quebraria no Jinja. lint-dbt cobre os models com templater jinja (cwd = dir do dbt,
+# pois o sqlfluff so aceita templater no config do diretorio corrente, nao em aninhado).
+lint-sql = "uv run sqlfluff lint dags/ ; uv run task lint-dbt"
+lint-dbt = "cd dags/melhorias/dbt && uv run sqlfluff lint models"
+pre_format = "uv run ruff check --fix"
+format = "uv run ruff format"
+format-sql = "uv run sqlfluff format dags/ ; uv run task format-dbt"
+format-dbt = "cd dags/melhorias/dbt && uv run sqlfluff format models"
+run = "uv run task docker"
+pre_test = "uv run task lint"
+test = "uv run pytest -s -x --cov=./ -vv"
+post_test = "uv run coverage html"
+build = "docker build -t ${DOCKER_REGISTRY:-}airflow-gre:2.10.5 ."
+pre_push = "uv run task build"
+push = "docker push ${DOCKER_REGISTRY:-}airflow-gre:2.10.5"
+pre_dw = "uv run task build"
+dw = "docker compose up --watch"
+docker = "docker compose up -d"
+show-sharepoint-columns = "uv run dags/global_modules/sharepoint/show_columns.py"
+
+[tool.black]
+color = true
+line-length = 100
+target-version = ['py313']
+skip-string-normalization = true
+
+[tool.isort]
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+combine_as_imports = true
+
+[tool.pytest.ini_options]
+pythonpath = [".", "dags"]
+addopts = "-p no:warnings"
+xfail_strict = true
+testpaths = ["tests", "integration"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+preview = true
+select = ["I", "F", "E", "W", "PL", "PT"]
+ignore = ["E402", "F811"]
+
+[tool.ruff.format]
+preview = true
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false

@@ -1,0 +1,6 @@
+target/
+dbt_packages/
+logs/
+.user.yml
+# Lock gerado por dbt local (1.11) quebra o container (1.8.0); cada env gera o seu
+package-lock.yml

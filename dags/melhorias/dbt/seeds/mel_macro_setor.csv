@@ -1,0 +1,45 @@
+filial,setor,macro_setor,origem
+Crato,ATOM Cra,Corte,mel_ganhos
+Crato,Bordado Cra,Costura,mel_ganhos
+Crato,Caldeira Cra,Caldeira,mel_ganhos
+Crato,Compostagem Cra,Compostagem,mel_ganhos
+Crato,Corte de tiras Cra,Corte,planilha
+Crato,Costura Cra,Costura,mel_ganhos
+Crato,Desenvolvimento Sustentável Cra,Sustentabilidade,mel_ganhos
+Crato,Dublagem Componente Cra,Dublagem,mel_ganhos
+Crato,Embalagem Cra,Embalagem,mel_ganhos
+Crato,Expedição Cra,Logística,mel_ganhos
+Crato,Frequência Cra,Frequência,mel_ganhos
+Crato,Injeção expandido Cra,Injeção,mel_ganhos
+Crato,Laboratório Cra,Laboratório,mel_ganhos
+Crato,Linha EVA Cra,Costura,mel_ganhos
+Crato,Mezanino Cra,Mezanino,planilha
+Crato,Montagem Cra,Montagem,mel_ganhos
+Crato,Planificada Cra,Planificada,mel_ganhos
+Crato,Pré - Montagem Cra,Pré_Montagem,mel_ganhos
+Crato,Pré - Montagem UV Cra,Pre Uv,mel_ganhos
+Crato,RH Cra,RH,mel_ganhos
+Crato,Recorte Componente Cra,Recorte,mel_ganhos
+Crato,Serigrafia de componentes Cra,Serigrafia de componentes,mel_ganhos
+Crato,ZUND Cra,Corte,mel_ganhos
+Fortaleza,Corte For,Corte,mel_ganhos
+Fortaleza,E-Commerce For,Digital commerce,mel_ganhos
+Fortaleza,Frequência/Recorte For,Frequência,mel_ganhos
+Fortaleza,Gráfica For,Gráfica,mel_ganhos
+Fortaleza,Leitura Ótica For,Leitura Ótica,planilha
+Fortaleza,RH For,RH,mel_ganhos
+Fortaleza,TI Suporte For,TI,planilha
+Sobral,Engenharia e Qualidade F1,Engenharia e Qualidade,planilha
+Sobral,Engenharia e Qualidade F2,Engenharia e Qualidade,mel_ganhos
+Sobral,Laboratório de Telas F5,F5,mel_ganhos
+Sobral,Leitura Ótica F1,Leitura Ótica,planilha
+Sobral,Leitura Ótica F3,Leitura Ótica,mel_ganhos
+Sobral,Leitura Ótica F4,Leitura Ótica,mel_ganhos
+Sobral,Leitura Ótica F6,Leitura Ótica,mel_ganhos
+Sobral,Logistica F7,Logística,mel_ganhos
+Sobral,PPCP F1,PPCP,mel_ganhos
+Sobral,RH Farroupilha,Demais Processos,mel_ganhos
+Sobral,TI Governança Sobral,Demais Processos,planilha
+Sobral,TI Suporte Sobral,Demais Processos,mel_ganhos
+Sobral,TS6 - Serigrafia,Montagem,mel_ganhos
+Sobral,Área de apoio F2,Área de apoio,planilha

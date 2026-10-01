@@ -1,0 +1,52 @@
+name: "melhorias"
+version: "1.0.0"
+config-version: 2
+
+profile: "melhorias"
+
+# Logs do dbt vao pro stdout (capturado no log da task do Airflow); 'none' desliga a
+# escrita de logs/dbt.log.
+flags:
+  log_level_file: none
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Corte do histórico Qlik (ADR 0006/0007): antes de volume_hist_ate valem as regras e
+# fontes que alimentavam o Qlik (2021-2025); a partir dele, as fontes operacionais.
+# Carga horária (por dt_fap): antes do corte só macro setor; depois, setor com fallback
+# macro. Volume real (por mês de competência): antes do corte mel_volume_real_hist
+# (planilhas do Qlik); depois, mel_volume_real. Sempre o dia 1 de um mês: o volume é
+# roteado pelo mês de competência.
+vars:
+  volume_hist_ate: "2026-01-01"
+
+# ADR 0001: default VIEW em dbo (limite de 10GB, Power BI import).
+# ADR 0005: exceção pontual no caminho quente de ganhos — int_ganhos_long, fct_ganhos,
+# fct_aderencia e fct_melhoria sobrescrevem para `table` (clustered columnstore) no
+# próprio .sql via config(). Storage desprezível (~10-20MB); ver cost-analysis-mel-storage.md.
+models:
+  melhorias:
+    +materialized: view
+    +schema: dbo
+    staging:
+      +tags: ["staging"]
+    intermediate:
+      +tags: ["intermediate"]
+    marts:
+      +tags: ["marts"]
+
+# Seed desativado: tabelas mel_* carregadas manualmente no SQL Server (ADR 0004).
+# Config mantida comentada como referencia. NAO usar +enabled: false aqui: os models
+# referenciam os seeds via ref() e isso quebraria o parse; os nos seguem habilitados
+# para resolucao de ref(), o build apenas os exclui (--exclude resource_type:seed).
+# seeds:
+#   melhorias:
+#     +schema: dbo

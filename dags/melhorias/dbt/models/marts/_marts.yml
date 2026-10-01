@@ -1,0 +1,303 @@
+version: 2
+
+models:
+  - name: dim_calendario
+    description: >
+      Calendário diário (date spine 2020-01-01 .. getdate()+1ano). Liga os fatos
+      por dt_fap / dt_competencia (ADR 0003). Bimestre canônico 'mes1-mes2/ano'.
+    columns:
+      - name: data
+        description: "Data (grão diário). PK da dimensão."
+        data_tests: [unique, not_null]
+      - name: ano
+        description: "Ano da data."
+      - name: mes
+        description: "Mês (1-12) da data."
+      - name: dia
+        description: "Dia do mês (1-31)."
+      - name: bimestre_num
+        description: "Número do bimestre (1-6), ceil(mes/2)."
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4, 5, 6]
+      - name: bimestre
+        description: "Bimestre canônico textual 'mes1-mes2/ano' (ex. jan-fev/2026)."
+
+  - name: dim_gerente
+    description: >
+      Dimensão de gerente já remapeado (int_gerente_remap) + área. PK: gerente.
+    columns:
+      - name: gerente
+        description: "Nome do gerente ajustado (pós-remap). PK da dimensão."
+        data_tests: [unique, not_null]
+      - name: area
+        description: "Área do gerente (lookup seed mel_gerente_area)."
+
+  - name: dim_idealizador
+    description: >
+      Dimensão de idealizador no grão (bimestre, crachá): atributos variam por
+      bimestre (cargo, gerente, elegibilidade). Fonte: roster da meta.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [bimestre, cracha_idealizador]
+    columns:
+      - name: bimestre
+        description: "Bimestre canônico 'mes1-mes2/ano'. Parte da PK composta."
+        data_tests: [not_null]
+      - name: cracha_idealizador
+        description: "Crachá (código RH) do idealizador. Parte da PK composta."
+        data_tests: [not_null]
+      - name: sk_idealizador
+        description: >
+          Chave surrogate de relação Power BI (bimestre|crachá). PK de 1 coluna da
+          dimensão-ponte; os fatos referenciam por esta chave.
+        data_tests: [unique, not_null]
+      - name: nome_idealizador
+        description: "Nome do idealizador."
+      - name: cargo
+        description: "Cargo no bimestre."
+      - name: grupo_cargo
+        description: "Grupo de cargo (usado na regra de elegibilidade)."
+      - name: setor
+        description: "Setor do idealizador."
+      - name: gerente_meta
+        description: "Gerente responsável pela meta do idealizador."
+      - name: elegivel
+        description: "Flag (bit) de elegibilidade para a meta de melhorias."
+
+  - name: dim_tipo_melhoria
+    description: >
+      Dimensão de tipo de melhoria + categoria (seed mel_categoria_melhorias).
+    columns:
+      - name: tipo_melhoria
+        description: "Tipo da melhoria (TC, Consumo, Troca MP, Aglutinação, etc.). PK."
+        data_tests: [unique, not_null]
+      - name: categoria
+        description: "Categoria agregadora do tipo."
+        data_tests: [not_null]
+
+  - name: fct_ganhos
+    description: >
+      Fato de ganhos LONG: uma linha por (FAP, mês de competência 1..4), ganho_reais
+      convertido por tipo (ADR 0003). Componentes colapsados via group by + sum.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [numero_fap, mes_offset]
+    columns:
+      - name: numero_fap
+        description: "Número da FAP (Ficha de Aprovação). Parte da PK."
+        data_tests: [not_null]
+      - name: id_solicitacao_assinatura
+        description: "ID da solicitação de assinatura no fluxo de aprovação."
+      - name: tipo_melhoria
+        description: "Tipo da melhoria."
+        data_tests:
+          - relationships:
+              to: ref('dim_tipo_melhoria')
+              field: tipo_melhoria
+              config:
+                severity: warn
+      - name: filial
+        description: "Filial/estabelecimento da melhoria."
+      - name: setor
+        description: "Setor da melhoria."
+      - name: macro_setor
+        description: "Macro setor agregador."
+      - name: cracha_idealizador
+        description: "Crachá do idealizador."
+      - name: nome_idealizador
+        description: "Nome do idealizador."
+      - name: gerente_idealizador
+        description: "Gerente do idealizador."
+      - name: bimestre
+        description: "Bimestre canônico 'mes1-mes2/ano' derivado de dt_fap."
+      - name: sk_idealizador
+        description: >
+          Chave surrogate de relação Power BI (bimestre|crachá) -> dim_idealizador.
+          FAP cujo idealizador não está no roster do bimestre fica órfão (warn).
+        data_tests:
+          - relationships:
+              to: ref('dim_idealizador')
+              field: sk_idealizador
+              config:
+                severity: warn
+      - name: replicacao
+        description: "Indica se a FAP é replicação ('Não' = melhoria original)."
+      - name: mes_offset
+        description: "Mês de competência relativo ao dt_fap (1..4)."
+        data_tests:
+          - accepted_values:
+              values: [1, 2, 3, 4]
+      - name: dt_competencia
+        description: "Data de competência do mês (dt_fap + mes_offset-1 meses)."
+        data_tests: [not_null]
+      - name: hrs_ganhas
+        description: "Horas ganhas no mês (TC/Aglutinação). Pode ser negativo (piora)."
+      - name: ganho_reais
+        description: "Ganho em R$ no mês, convertido por tipo. Pode ser negativo."
+      - name: ganho_pessoas
+        description: >
+          Ganho em pessoas no mês (hrs_ganhas / carga horária mensal do setor =
+          funcionários equivalentes liberados). Não-zero só p/ TC/Aglutinação.
+          Pode ser negativo (piora).
+
+  - name: fct_melhoria
+    description: >
+      Fato resumo por FAP (grão 1 linha/numero_fap): aprovação (status, tipo_produto,
+      tipo_melhoria) + ganho agregado (R$, replicacao, origem_melhoria). Roster completo:
+      todas as FAPs, todos os status; ganho por left join (0 quando sem ganho).
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [numero_fap]
+    columns:
+      - name: bimestre
+        description: "Bimestre canônico 'mes1-mes2/ano' derivado de dt_fap (aprovação)."
+      - name: sk_idealizador
+        description: >
+          Chave surrogate de relação Power BI (bimestre|crachá) -> dim_idealizador.
+          FAP cujo idealizador não está no roster do bimestre fica órfão (warn).
+        data_tests:
+          - relationships:
+              to: ref('dim_idealizador')
+              field: sk_idealizador
+              config:
+                severity: warn
+      - name: numero_fap
+        description: "Número da FAP. PK do grão (1 linha/FAP)."
+        data_tests: [not_null]
+      - name: status
+        description: "Status no fluxo de aprovação (Aprovado/Reprovado/Em andamento/etc.)."
+      - name: tipo_produto
+        description: "Tipo de produto da melhoria (origem: mel_aprovacao)."
+      - name: tipo_melhoria
+        description: "Tipo da melhoria."
+        data_tests:
+          - relationships:
+              to: ref('dim_tipo_melhoria')
+              field: tipo_melhoria
+              config:
+                severity: warn
+      - name: replicacao
+        description: "Indica se a FAP é replicação ('Não' = melhoria original). Origem: mel_ganhos."
+      - name: ganho_reais
+        description: >
+          Ganho total em R$ da FAP (soma de int_ganhos_long por FAP). 0 quando a FAP
+          não tem ganho computado (ex. não-aprovada). Pode ser negativo (piora).
+      - name: ganho_reais_previsto_mes_1
+        description: >
+          Ganho previsto em R$ do mês 1 da FAP (int_ganhos_previsto): mesmo cálculo de
+          ganho_reais com o volume estimado no cadastro (mel_ganhos.volume_mes_1).
+          Independe de status e de dt_fap.
+      - name: ganho_reais_previsto_quadrimestre
+        description: >
+          Ganho previsto em R$ do quadrimestre (soma dos meses 1..4), com os volumes
+          estimados mel_ganhos.volume_mes_1..4. Independe de status e de dt_fap.
+      - name: origem_melhoria
+        description: "Origem da melhoria (origem: mel_ganhos)."
+      - name: resultado_fap
+        description: >
+          Classificação Ganho/Perda da FAP (int_fap_resultado). Null quando a FAP
+          não tem ganho computado (ex. não existe em mel_ganhos).
+
+  - name: fct_aderencia
+    description: >
+      Fato unico de meta x realizado (roster completo). Grão (bimestre, crachá).
+      Inclui não-elegíveis (elegivel=0) para servir também de roster; realizado
+      vem por left join. Responde quantas melhorias o idealizador fez e se atingiu
+      a meta no bimestre.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [bimestre, cracha_idealizador]
+    columns:
+      - name: bimestre
+        description: "Bimestre canônico 'mes1-mes2/ano'. Parte da PK."
+        data_tests: [not_null]
+      - name: inicio_bimestre
+        description: "Data de início do bimestre."
+      - name: fim_bimestre
+        description: "Data de fim do bimestre."
+      - name: cracha_idealizador
+        description: "Crachá do idealizador (roster). Parte da PK."
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_idealizador')
+              field: cracha_idealizador
+              config:
+                severity: warn
+      - name: sk_idealizador
+        description: >
+          Chave surrogate de relação Power BI (bimestre|crachá) -> dim_idealizador.
+        data_tests:
+          - not_null
+          - relationships:
+              to: ref('dim_idealizador')
+              field: sk_idealizador
+              config:
+                severity: warn
+      - name: nome
+        description: "Nome do funcionário do roster."
+      - name: cargo
+        description: "Cargo do funcionário."
+      - name: grupo_cargo
+        description: "Grupo de cargo (regra de elegibilidade)."
+      - name: gerente_meta
+        description: "Gerente responsável pela meta."
+      - name: meta_qtde
+        description: "Meta de melhorias do idealizador no bimestre (fixa: 1 por elegível)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+      - name: realizado_qtde
+        description: "Quantidade de melhorias realizadas (não-replicação, classificadas como 'Ganho')."
+        data_tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              inclusive: true
+      - name: ganho_total
+        description: "Soma de todos os ganhos do idealizador no bimestre (R$)."
+      - name: atingiu_meta
+        description: "Flag (bit): elegível e realizado_qtde >= meta_qtde e meta > 0."
+      - name: elegivel
+        description: "Flag (bit) de elegibilidade do idealizador."
+
+  - name: fct_melhorias_em_andamento
+    description: >
+      Pipeline de melhorias em andamento (status = 'Em andamento'). Fora dos fatos
+      de aprovadas (ADR 0003). Referenciada por created, carrega o status do fluxo
+      e os status/nomes dos aprovadores de cada etapa.
+    columns:
+      - name: id
+        description: "ID da linha em mel_aprovacao. PK."
+        data_tests: [unique, not_null]
+      - name: numero_fap
+        description: "Número da FAP (pode ser nulo antes da numeração)."
+      - name: tipo_melhoria
+        description: "Tipo da melhoria."
+      - name: status
+        description: "Status atual no fluxo de aprovação."
+      - name: status_aprov_especialista
+        description: "Status da etapa de aprovação do especialista."
+      - name: status_aprov_setor
+        description: "Status da etapa de aprovação do setor."
+      - name: status_aprov_analista
+        description: "Status da etapa de aprovação do analista."
+      - name: status_aprovador_inmetro
+        description: "Status da etapa de aprovação do Inmetro."
+      - name: setor
+        description: "Setor da melhoria."
+      - name: gerente_idealizador
+        description: "Gerente do idealizador."
+      - name: cracha_idealizador
+        description: "Crachá do idealizador."
+      - name: nome_idealizador
+        description: "Nome do idealizador."
+      - name: dt_referencia
+        description: "Data de referência (created): entrada no pipeline."
+      - name: dt_inicio_fluxo
+        description: "Data de início do fluxo de aprovação."
+      - name: nome_especialista
+        description: "Nome do especialista responsável pela aprovação."
+      - name: nome_aprovador_setor
+        description: "Nome do aprovador do setor."

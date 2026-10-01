@@ -1,0 +1,6 @@
+-- sqlfluff:dialect:tsql
+SELECT TABLE_NAME
+FROM [Elipse].INFORMATION_SCHEMA.TABLES
+WHERE TABLE_NAME LIKE 'Ciclo %'
+  AND TABLE_NAME NOT IN ('Ciclo 0', 'Ciclo_Plastisol')
+  AND TABLE_TYPE = 'BASE TABLE'

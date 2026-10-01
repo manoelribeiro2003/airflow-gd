@@ -1,0 +1,47 @@
+{% extends base_template %}
+
+{% block title %}Importar ganhos (planilha){% endblock %}
+
+{% block content %}
+  <h2>Importar ganhos das melhorias via planilha</h2>
+  <p>
+    Use quando a FAP tem linhas demais para a lista do SharePoint. A FAP precisa estar
+    <strong>Aprovada</strong> em <code>mel_aprovacao</code> e ter ao menos uma linha em
+    <code>mel_ganhos</code> vinda do SharePoint: as colunas que a planilha nao traz sao
+    copiadas dessa linha. Linhas com (FAP, codigo) que ja existem no SharePoint sao ignoradas.
+    Reimportar a mesma FAP substitui as linhas manuais anteriores.
+  </p>
+  <p>
+    O processamento roda na DAG <a href="{{ url_for('Airflow.grid', dag_id=dag_id) }}">{{ dag_id }}</a>;
+    o resumo por FAP aparece no log da task <code>validate_faps</code>.
+  </p>
+
+  <form method="post" enctype="multipart/form-data" style="max-width: 640px;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="form-group">
+      <label for="file">Planilha ({{ allowed_extensions }})</label>
+      <input type="file" class="form-control" id="file" name="file" accept="{{ allowed_extensions }}" required>
+    </div>
+
+    <div class="form-group">
+      <label for="sheet_name">Aba</label>
+      <input type="text" class="form-control" id="sheet_name" name="sheet_name" placeholder="Ex.: BASE_LANCAMENTO-f" required>
+    </div>
+
+    <div class="form-group">
+      <label for="numero_faps">FAPs a importar</label>
+      <textarea class="form-control" id="numero_faps" name="numero_faps" rows="3"
+        placeholder="Separadas por virgula ou uma por linha. Vazio = todas as FAPs da aba."></textarea>
+    </div>
+
+    <div class="checkbox">
+      <label>
+        <input type="checkbox" name="dry_run" checked>
+        Somente validar (dry-run): nao insere nada em <code>mel_ganhos</code>
+      </label>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Enviar e disparar DAG</button>
+  </form>
+{% endblock %}

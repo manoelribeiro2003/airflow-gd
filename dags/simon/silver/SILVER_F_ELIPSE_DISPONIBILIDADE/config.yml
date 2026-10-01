@@ -1,0 +1,16 @@
+elipse_commands:
+  extract_paradas:
+    sql: "sql_files/extract_paradas.sql"
+    extraction_quantity: 60
+
+dw_commands:
+  truncate_table:
+    sql: "sql_files/truncate_stage_paradas.sql"
+    target: "stage.stage_paradas"
+    conn: "postgres_eng_server"
+
+  merge_paradas:
+    sql: "sql_files/merge_query.sql"
+    source: "stage.stage_paradas"
+    target: "silver.oee_fparadas"
+    conn: "postgres_eng_server"

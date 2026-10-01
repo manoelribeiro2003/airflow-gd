@@ -1,0 +1,16 @@
+elipse_commands:
+  extract_paradas:
+    sql: "sql_files/extract_query.sql"
+    extraction_quantity: 60
+
+dw_commands:
+  truncate_table:
+    sql: "sql_files/truncate_stage.sql"
+    target: "stage.stage_apoio"
+    conn: "postgres_eng_server"
+
+  merge_apoio:
+    sql: "sql_files/insert_stage_silver_fapoio.sql"
+    source: "stage.stage_apoio"
+    target: "silver.oee_fapoio"
+    conn: "postgres_eng_server"

@@ -1,0 +1,5 @@
+dw_commands:
+  merge_maquinas:
+    sql: "sql_files/merge_gold_dElipse_Maquinas.sql"
+    target: "elipse.gold.cadastros_maquinas"
+    conn: "postgres_eng_server"

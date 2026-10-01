@@ -1,0 +1,18 @@
+[sqlfluff]
+dialect = tsql
+templater = jinja
+max_line_length = 100
+output_line_length = 100
+rules = core
+
+[sqlfluff:templater:jinja]
+apply_dbt_builtins = True
+# Sem isto o templater jinja nao enxerga as macros do projeto (ex. ganho_reais_case)
+# e o model vira secao unparsable.
+load_macros_from_path = macros
+
+[sqlfluff:indentation]
+tab_space_size = 4
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower

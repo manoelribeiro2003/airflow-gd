@@ -1,0 +1,135 @@
+version: 2
+
+models:
+  - name: int_ganhos_calc
+    description: >
+      Cálculo de ganhos WIDE (meses 1..4 em colunas). Componentes de hrs_ganhas,
+      g_consumo e troca_mp por mês, seguindo a regra Qlik (Consumo de Ting% vira
+      troca MP). troca_mp só para Consumo e Troca MP; TC/Aglutinação de Ting% não
+      soma troca_mp (ADR 0010).
+      Duas variantes por mês: volume REAL (sufixo vazio) e volume PREVISTO (sufixo
+      _previsto, de mel_ganhos.volume_mes_1..4). O volume real vem de
+      mel_volume_real_hist (planilhas do Qlik) quando o mês de competência é anterior a
+      var volume_hist_ate, e de mel_volume_real depois (ADR 0007). O unpivot para long
+      e a conversão R$ acontecem em int_ganhos_long.
+    columns:
+      - name: numero_fap
+        description: "Número da FAP."
+      - name: tipo_melhoria
+        description: "Tipo da melhoria."
+      - name: dt_fap
+        description: "Data da FAP (data mestra, ADR 0003)."
+      - name: bimestre
+        description: "Bimestre canônico 'mes1-mes2/ano'."
+      - name: dt_base
+        description: >
+          Competência do previsto: dt_fap com fallback para created do bronze (dt_fap
+          só existe em FAP aprovada). Usada no lookup de carga_horaria/custo.
+      - name: eh_tempo_ciclo
+        description: "Flag: 1 = ganho por horas (TC/Aglutinação), 0 = consumo/troca MP."
+      - name: ch_mensal
+        description: >
+          Carga horária mensal (horas/funcionário) do mês de dt_base, usada em
+          pessoas = hrs / ch_mensal (ADR 0006). dt_base < var volume_hist_ate: macro
+          setor (filial, macro_setor), igual ao Qlik; depois do corte: setor, com
+          fallback para o macro quando nula ou 0. Nula quando nenhuma fonte cobre.
+      - name: custo
+        description: "Custo do funcionário (R$) por filial no mês de dt_base."
+
+  - name: int_ganhos_long
+    description: >
+      Ganhos LONG: uma linha por (FAP, mês 1..4) com ganho_reais convertido (ADR 0003).
+      Espelha base_melhoria do Qlik. Conversão TC/Aglutinação via carga_horaria + custo;
+      Consumo/Troca MP já em R$; demais tipos usam ganho_previsto no mês 1.
+      Só cobre FAP com status Aprovado em mel_aprovacao e dt_fap (ADR 0003); dt_fap
+      preenchido não implica aprovação. O previsto vive em int_ganhos_previsto.
+    columns:
+      - name: numero_fap
+        description: "Número da FAP."
+      - name: bimestre
+        description: "Bimestre canônico 'mes1-mes2/ano'."
+      - name: mes_offset
+        description: "Mês de competência relativo ao dt_fap (1..4)."
+      - name: dt_competencia
+        description: "Data de competência (dt_fap + mes_offset-1 meses)."
+      - name: hrs_ganhas
+        description: "Horas ganhas no mês. Pode ser negativo (piora)."
+      - name: ganho_reais
+        description: "Ganho em R$ no mês, convertido por tipo. Pode ser negativo."
+
+  - name: int_ganhos_previsto
+    description: >
+      Ganho PREVISTO por FAP (1 linha/numero_fap): mesma regra de conversão do
+      realizado (macro ganho_reais_case), com o volume estimado no cadastro
+      (mel_ganhos.volume_mes_1..4). Independe de status e de dt_fap — cobre FAP
+      reprovada, cancelada, expirada e em andamento. dt_base (dt_fap com fallback
+      para created) serve só de competência no lookup de carga_horaria/custo.
+    columns:
+      - name: numero_fap
+        description: "Número da FAP. PK (1 linha/FAP)."
+        data_tests: [unique, not_null]
+      - name: ganho_reais_previsto_mes_1
+        description: "Ganho previsto em R$ do mês 1 (volume_mes_1). Pode ser negativo."
+      - name: ganho_reais_previsto_quadrimestre
+        description: >
+          Ganho previsto em R$ do quadrimestre (soma dos meses 1..4). Pode ser negativo.
+
+  - name: int_fap_resultado
+    description: >
+      Classificação Ganho/Perda por FAP (1 linha/numero_fap). Define se a FAP conta
+      como melhoria realizada. Regra por tipo (TC/Aglutinação -> delta tc; Consumo
+      não-Tingimento -> delta consumo; Troca MP ou Tingimento -> delta custo_par;
+      demais -> ganho_previsto >= 0), com deltas agregados por SUM na FAP.
+      Tingimento vem de tipo_fap = 'Tingimento'.
+    columns:
+      - name: numero_fap
+        description: "Número da FAP. PK (1 linha/FAP)."
+        data_tests: [unique, not_null]
+      - name: resultado_fap
+        description: "Classificação da FAP: 'Ganho' ou 'Perda'."
+        data_tests:
+          - accepted_values:
+              values: ['Ganho', 'Perda']
+
+  - name: int_melhorias_realizado
+    description: >
+      Realizado de melhorias por (bimestre, crachá idealizador). Entra no fct_aderencia.
+      qtde_melhorias conta FAPs não-replicação classificadas como 'Ganho'
+      (int_fap_resultado); ganho_total soma tudo.
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [bimestre, cracha_idealizador]
+    columns:
+      - name: bimestre
+        description: "Bimestre canônico 'mes1-mes2/ano'. Parte da PK composta."
+        data_tests: [not_null]
+      - name: cracha_idealizador
+        description: "Crachá do idealizador. Parte da PK composta."
+        data_tests: [not_null]
+      - name: qtde_melhorias
+        description: "Qtde de melhorias (FAPs distintas não-replicação classificadas como 'Ganho')."
+      - name: ganho_total
+        description: "Soma de todos os ganhos do idealizador no bimestre (R$)."
+
+  - name: int_gerente_remap
+    description: >
+      Aplica remap de gerente (seed mel_gerente_remap, com janela de data) e lookup de
+      área (seed mel_gerente_area). Fall-through: sem match no remap mantém o original.
+    columns:
+      - name: gerente_origem
+        description: "Gerente original vindo da meta."
+      - name: inicio_bimestre
+        description: "Início do bimestre (janela de validade do remap)."
+      - name: gerente_ajustado
+        description: "Gerente após remap (coalesce destino / origem)."
+      - name: area
+        description: "Área do gerente ajustado."
+
+  - name: int_calendario_spine
+    description: >
+      Date spine manual (tally table de dígitos com cross-join). Evita o WITH aninhado
+      do dbt_utils.date_spine que o SQL Server 2008 rejeita. Consumida por dim_calendario.
+    columns:
+      - name: date_day
+        description: "Data diária da spine (2020-01-01 .. getdate()+1ano)."
+        data_tests: [unique, not_null]

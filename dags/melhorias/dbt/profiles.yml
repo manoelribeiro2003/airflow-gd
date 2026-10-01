@@ -1,0 +1,19 @@
+# ADR 0002: credencial vem da Airflow Variable ENG_DATABASE_URL.
+# A DAG faz make_url() e injeta DBT_HOST/DBT_PORT/DBT_DB/DBT_USER/DBT_PWD no env
+# do BashOperator. Rodar com: dbt build --profiles-dir .
+melhorias:
+  target: prod
+  outputs:
+    prod:
+      type: sqlserver
+      driver: "{{ env_var('DBT_DRIVER', 'ODBC Driver 17 for SQL Server') }}"
+      server: "{{ env_var('DBT_HOST') }}"
+      port: "{{ env_var('DBT_PORT', '1433') | int }}"
+      database: "{{ env_var('DBT_DB', 'dbengenharia') }}"
+      schema: dbo
+      user: "{{ env_var('DBT_USER') }}"
+      password: "{{ env_var('DBT_PWD') }}"
+      # SQL Server 2008 + TLS downgrade (openssl.cnf SECLEVEL=0): sem encrypt.
+      encrypt: false
+      trust_cert: true
+      threads: 4

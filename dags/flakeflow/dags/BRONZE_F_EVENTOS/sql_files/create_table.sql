@@ -1,0 +1,27 @@
+CREATE TABLE IF NOT EXISTS ferramental.eventos (
+    id_log                    uuid not null,
+    data_criacao              TIMESTAMPtz,
+    atualizado_em             TIMESTAMPtz,
+    estabelecimento           TEXT,
+    mercado                   TEXT,
+    produto                   TEXT,
+    cod_estabelecimento       int2,
+    deposito                  TEXT,
+    cod_deposito              TEXT,
+    cod_produto               TEXT,
+    desc_produto              TEXT,
+    qtde_eliminar             int4,
+    marca_grendene            TEXT,
+    status_produto            TEXT,
+    valor_residual            float4,
+    desc_ferramenta           TEXT,
+    numero_processo           TEXT,
+    tipo_ferramenta           TEXT,
+    qtde_estoque_atual        float4,
+    data_limite_analise       date,
+    segmento_de_negocio       int4,
+    cod_grupo_ferramental     TEXT,
+    desc_segmento_negocio     TEXT,
+    desc_grupo_ferramental    TEXT
+    ,loaded_at timestamptz not null default current_timestamp
+)

@@ -1,0 +1,63 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: dbengenharia
+    schema: dbo
+    description: "Bronze imutável ingerido das listas SharePoint pelas DAGs Airflow."
+    tables:
+      - name: mel_aprovacao
+        description: "Fluxo de aprovação/assinatura das melhorias (FAP/FAO)."
+        loaded_at_field: Modified
+        freshness:
+          warn_after: { count: 2, period: day }
+          error_after: { count: 7, period: day }
+      - name: mel_ganhos
+        description: "Ganhos das melhorias (TC, consumo, troca MP, outros)."
+        loaded_at_field: Modified
+        freshness:
+          warn_after: { count: 2, period: day }
+          error_after: { count: 7, period: day }
+
+  - name: silver
+    database: dbengenharia
+    schema: dbo
+    description: "Tabelas silver materializadas por DAGs Airflow (não-dbt)."
+    tables:
+      - name: mel_volume_real
+        description: >
+          Volume real de produção atribuído por melhoria, carregado pela DAG
+          SILVER_MELHORIAS_VOLUME_REAL. Grão: (numero_fap, cod_prod, mes_ano).
+
+  - name: aux
+    database: dbengenharia
+    schema: dbo
+    description: "Tabelas auxiliares operacionais populadas via planilha + VBA (sem DAG)."
+    tables:
+      - name: mel_meta_aderencia
+        description: "Meta por gerente/bimestre + roster RH elegível."
+      - name: mel_carga_horaria
+        description: "Carga horária mensal por setor."
+      - name: mel_carga_horaria_macro
+        description: >
+          Carga horária mensal por estabelecimento + macro setor (Area), histórico da
+          planilha carga_horaria.xlsx que alimentava o Qlik (2015-2026). Carga manual
+          via dags/melhorias/scripts/carga_horaria_macro.py (ADR 0004/0006).
+      - name: mel_custo_funcionario
+        description: "Custo do funcionário mensal por estabelecimento."
+      - name: mel_volume_real_hist
+        description: >
+          Volume real histórico por melhoria (numero_fap, cod_prod, mes_offset 1|2),
+          extraído das planilhas BASE_LANCAMENTO que alimentavam o Qlik (2021-2025).
+          Linha sem código de tipo com ganho por volume fica com cod_prod
+          'SEM_CODIGO' (ADR 0013). Carga manual via
+          dags/melhorias/scripts/volume_real_hist.py (ADR 0004/0007).
+      - name: mel_ganhos_hist
+        description: >
+          Linhas de ganho das FAPs aprovadas que não têm nenhuma linha em mel_ganhos,
+          extraídas das planilhas BASE_LANCAMENTO que alimentavam o Qlik (2021-2025),
+          mais as FAPs do seed mel_ganhos_fonte_planilha (cadastro de mel_ganhos
+          incompleto ou diferente da planilha, ADR 0013).
+          Tipos com ganho por volume: grão da planilha (linha por operação/mix).
+          Demais tipos: uma linha por FAP, ganho_previsto = "Ganho mês R$". Carga
+          manual via dags/melhorias/scripts/ganhos_hist.py (ADR 0004/0008).
